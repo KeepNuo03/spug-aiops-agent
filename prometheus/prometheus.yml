@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+rule_files:
+  - rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: "node"
+    static_configs:
+      - targets: []  # TODO: 填入被监控主机的 node_exporter 地址

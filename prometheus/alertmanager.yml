@@ -1,0 +1,8 @@
+route:
+  receiver: agent-gateway
+
+receivers:
+  - name: agent-gateway
+    webhook_configs:
+      - url: "http://agent_gateway:8001/webhook/alertmanager"
+        send_resolved: true

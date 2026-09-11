@@ -1,0 +1,12 @@
+groups:
+  - name: aiops-alerts
+    rules:
+      # TODO: cpu_high / memory_leak / disk_full / network_error / service_down
+      # 对应 agent_gateway/intent/classifier.py 中的 INTENT_RULES
+      - alert: PlaceholderRule
+        expr: vector(0)
+        for: 0m
+        labels:
+          severity: none
+        annotations:
+          summary: "占位规则,待补充实际告警规则"

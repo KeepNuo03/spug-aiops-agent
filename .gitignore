@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Node (frontend tooling, if any)
+node_modules/
+
+# Env / secrets
+.env
+*.local.yml
+
+# Data / runtime artifacts
+data/
+logs/
+*.log
+chroma_db/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
