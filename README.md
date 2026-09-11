@@ -1,21 +1,21 @@
 # spug-aiops-agent
 
-端到端 AIOps Agent:告警事件驱动 → 意图识别 → 多 Agent 路由 → MCP 工具调诊断 → HITL 安全修复 → 在线监控 + 离线评测闭环。
+End-to-end AIOps agent: alert event → intent classification → multi-agent routing → MCP tool-driven diagnosis → HITL-gated remediation → online monitoring + offline evaluation loop.
 
-基于 [Spug](https://github.com/openspug/spug) 运维平台(SSH 执行 / 通知渠道)+ Prometheus 指标体系构建。完整设计文档见 [`docs/技术方案.md`](docs/技术方案.md)(如已放入本仓库)。
+Built on top of the [Spug](https://github.com/openspug/spug) ops platform (SSH execution / notification channels) and a Prometheus metrics stack. Full design doc: [`docs/design.md`](docs/design.md) (if included in this repo).
 
-> **当前状态**:项目脚手架阶段,目录结构已搭建,各模块为占位实现,尚未完成端到端联调。
+> **Status**: scaffolding stage. The directory structure is in place; each module is a placeholder and end-to-end wiring is not yet complete.
 
-## 架构总览
+## Architecture
 
 ```
 Alertmanager Webhook ─┐
-Spug 告警查询 API     ─┼─→ Intent Classifier (规则 + LLM) ─→ Supervisor Router
-Chat 入口             ─┘                                         │
+Spug Alarm Query API ─┼─→ Intent Classifier (rules + LLM) ─→ Supervisor Router
+Chat Entry            ─┘                                         │
                                     ┌────────────────────────────┼────────────────────────────┐
                                     ▼                             ▼                             ▼
                              Monitor Agent                 Diagnose Agent                 Fix / Execute / Notify Agent
-                             (查指标/日志/告警)              (根因分析)                     (修复决策 → HITL 审批 → Spug SSH 执行 → 通知)
+                             (metrics/logs/alarms)         (root cause analysis)          (remediation decision → HITL approval → Spug SSH exec → notify)
                                     │                             │                             │
                                     └─────────────────────────────┴─────────────────────────────┘
                                                           MCP Server
@@ -23,36 +23,36 @@ Chat 入口             ─┘                                         │
                                          get_host_info / list_alarms / send_notify / search_runbook)
 ```
 
-## 目录结构
+## Directory Structure
 
 ```
 spug-aiops-agent/
-├── mcp_server/          # MCP 工具层:Prometheus / Spug / Loki / Runbook 检索工具
-├── agent_gateway/        # Agent 编排层(FastAPI + LangGraph)+ 独立 Web UI
-│   ├── graph/            # Supervisor + 各子 Agent(monitor/diagnose/fix/execute/notify)
-│   ├── intent/           # 意图识别(规则引擎 + LLM few-shot)
-│   ├── memory/           # 工作记忆(Redis)/ 对话记忆(滑动窗口)/ 情景记忆(Chroma)
-│   ├── safety/           # 命令安全策略 + HITL 人工审批
-│   └── observability/    # 结构化日志 / Prometheus 埋点 / 反馈闭环
-├── eval/                 # 离线评测:测试用例 + LLM-as-Judge + 发布门禁
-├── fault_injection/      # 故障注入脚本(用于评测数据采集)
-├── prometheus/           # Prometheus / Alertmanager 配置
-└── runbooks/             # 修复知识库(RAG 数据源)
+├── mcp_server/          # MCP tool layer: Prometheus / Spug / Loki / runbook retrieval tools
+├── agent_gateway/        # Agent orchestration layer (FastAPI + LangGraph) + standalone Web UI
+│   ├── graph/            # Supervisor + sub-agents (monitor/diagnose/fix/execute/notify)
+│   ├── intent/           # Intent classification (rule engine + LLM few-shot)
+│   ├── memory/           # Working memory (Redis) / conversation memory (sliding window) / episodic memory (Chroma)
+│   ├── safety/           # Command safety policy + HITL human approval
+│   └── observability/    # Structured logging / Prometheus instrumentation / feedback loop
+├── eval/                 # Offline evaluation: test cases + LLM-as-Judge + release gate
+├── fault_injection/      # Fault injection scripts (for eval data collection)
+├── prometheus/           # Prometheus / Alertmanager configuration
+└── runbooks/             # Remediation knowledge base (RAG data source)
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-cp .env.example .env    # 填入 LLM API Key、Spug 地址等
-docker compose up -d    # 启动 Prometheus / Alertmanager / Redis 等依赖
+cp .env.example .env    # fill in LLM API key, Spug URL, etc.
+docker compose up -d    # start Prometheus / Alertmanager / Redis and other dependencies
 ```
 
-Spug 本体作为独立运行时依赖,需单独部署(参考 [Spug 官方安装文档](https://ops.spug.cc/docs/install-docker)),本仓库通过 HTTP API 调用,不包含也不修改其源码。
+Spug itself is a standalone runtime dependency and must be deployed separately (see the [official Spug install docs](https://ops.spug.cc/docs/install-docker)). This repo calls it over HTTP only and does not include or modify its source code.
 
-## 许可证
+## License
 
-本项目 (spug-aiops-agent) 使用 [Apache 2.0](LICENSE) 许可证。
+This project (spug-aiops-agent) is licensed under [Apache 2.0](LICENSE).
 
-本项目在运行时依赖 [Spug](https://github.com/openspug/spug)(AGPL-3.0),
-但**不包含、不修改** Spug 的任何源代码,仅通过 HTTP API 调用。
-Spug 本身的许可证仍为其原始的 AGPL-3.0。
+This project depends on [Spug](https://github.com/openspug/spug) (AGPL-3.0) at runtime,
+but **does not include or modify** any of Spug's source code — it is called exclusively via HTTP API.
+Spug itself remains under its original AGPL-3.0 license.
