@@ -1,0 +1,43 @@
+{
+    "receiver": "agent-gateway",
+    "status": "firing",
+    "alerts": [
+        {
+            "status": "firing",
+            "labels": {
+                "alertname": "HostHighCpuUsage",
+                "hostname": "lab-host",
+                "instance": "lab-host:9100",
+                "intent": "cpu_high",
+                "severity": "warning"
+            },
+            "annotations": {
+                "description": "CPU usage is 100.0% (> 80%) for more than 1 minute.",
+                "summary": "High CPU usage on lab-host"
+            },
+            "startsAt": "2026-09-21T07:17:59.601Z",
+            "endsAt": "0001-01-01T00:00:00Z",
+            "generatorURL": "http://210530ea2345:9090/graph?g0.expr=100+-+%28avg+by+%28instance%2C+hostname%29+%28rate%28node_cpu_seconds_total%7Bmode%3D%22idle%22%7D%5B1m%5D%29%29+%2A+100%29+%3E+80&g0.tab=1",
+            "fingerprint": "7a1a675dacc4cab7"
+        }
+    ],
+    "groupLabels": {
+        "alertname": "HostHighCpuUsage",
+        "hostname": "lab-host"
+    },
+    "commonLabels": {
+        "alertname": "HostHighCpuUsage",
+        "hostname": "lab-host",
+        "instance": "lab-host:9100",
+        "intent": "cpu_high",
+        "severity": "warning"
+    },
+    "commonAnnotations": {
+        "description": "CPU usage is 100.0% (> 80%) for more than 1 minute.",
+        "summary": "High CPU usage on lab-host"
+    },
+    "externalURL": "http://84a4875f85e3:9093",
+    "version": "4",
+    "groupKey": "{}:{alertname=\"HostHighCpuUsage\", hostname=\"lab-host\"}",
+    "truncatedAlerts": 0
+}

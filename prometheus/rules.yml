@@ -1,12 +1,12 @@
 groups:
-  - name: aiops-alerts
+  - name: aiops-host
     rules:
-      # TODO: cpu_high / memory_leak / disk_full / network_error / service_down
-      # 对应 agent_gateway/intent/classifier.py 中的 INTENT_RULES
-      - alert: PlaceholderRule
-        expr: vector(0)
-        for: 0m
+      - alert: HostHighCpuUsage
+        expr: 100 - (avg by (instance, hostname) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 80
+        for: 1m
         labels:
-          severity: none
+          severity: warning
+          intent: cpu_high
         annotations:
-          summary: "占位规则,待补充实际告警规则"
+          summary: "High CPU usage on {{ $labels.hostname }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% (> 80%) for more than 1 minute."
