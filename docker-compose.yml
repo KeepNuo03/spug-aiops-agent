@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   redis:
     image: redis:7-alpine
@@ -9,25 +7,46 @@ services:
       - "6379:6379"
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.0
     container_name: aiops-prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus/rules.yml:/etc/prometheus/rules.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
     ports:
       - "9090:9090"
 
   alertmanager:
-    image: prom/alertmanager:latest
+    image: prom/alertmanager:v0.27.0
     container_name: aiops-alertmanager
     restart: unless-stopped
     volumes:
-      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
       - "9093:9093"
 
+  # Lab host monitored by Prometheus and managed by Spug over SSH (host port 2222).
+  lab-host:
+    build: ./lab/target-host
+    container_name: aiops-lab-host
+    hostname: lab-host
+    restart: unless-stopped
+    ports:
+      - "2222:22"
+      - "9100:9100"
+
+  # Temporary Alertmanager receiver until agent_gateway implements /webhook/alertmanager.
+  webhook-echo:
+    image: python:3.11-alpine
+    container_name: aiops-webhook-echo
+    restart: unless-stopped
+    command: ["python", "-u", "/app/webhook_echo.py"]
+    volumes:
+      - ./lab/webhook_echo.py:/app/webhook_echo.py:ro
+      - ./lab/captured:/captured
+
   mcp_server:
+    profiles: ["app"]
     build: ./mcp_server
     container_name: aiops-mcp-server
     restart: unless-stopped
@@ -39,6 +58,7 @@ services:
       - redis
 
   agent_gateway:
+    profiles: ["app"]
     build: ./agent_gateway
     container_name: aiops-agent-gateway
     restart: unless-stopped
@@ -49,5 +69,4 @@ services:
       - mcp_server
       - redis
 
-# 注意:Spug 本体(SSH 执行 / 通知渠道来源)作为独立运行时依赖单独部署,
-# 不在本 compose 文件中编排,详见 README「许可证」章节。
+# Spug runs as a separate runtime dependency (see README "License"); it is not orchestrated here.
