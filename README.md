@@ -1,10 +1,22 @@
 # spug-aiops-agent
 
+[![CI](https://github.com/KeepNuo03/spug-aiops-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/KeepNuo03/spug-aiops-agent/actions/workflows/ci.yml)
+
 End-to-end AIOps agent: alert event → intent classification → multi-agent routing → MCP tool-driven diagnosis → HITL-gated remediation → online monitoring + offline evaluation loop.
 
-Built on top of the [Spug](https://github.com/openspug/spug) ops platform (SSH execution / notification channels) and a Prometheus metrics stack. Full design doc: [`docs/design.md`](docs/design.md) (if included in this repo).
+Built on top of the [Spug](https://github.com/openspug/spug) ops platform (SSH execution / notification channels) and a Prometheus metrics stack.
 
-> **Status**: scaffolding stage. The directory structure is in place; each module is a placeholder and end-to-end wiring is not yet complete.
+## Status
+
+Work in progress. The first milestone is the thinnest end-to-end slice for the `cpu_high` scenario; other modules are still placeholders.
+
+- [x] Local lab: Spug + Prometheus + Alertmanager + lab host, fault injection through Spug
+- [x] Agent Gateway receives and normalizes Alertmanager webhooks
+- [x] CI: lint, format check, tests
+- [ ] Rule-based intent classification
+- [ ] MCP tools (`query_metrics`, `exec_command`) wired into a fixed monitor → diagnose route
+- [ ] LLM diagnosis
+- [ ] Then: HITL, other intents, memory, tool retry, evaluation
 
 ## Architecture
 
@@ -74,9 +86,13 @@ docker logs -f aiops-agent-gateway
 
 After editing `prometheus/alertmanager.yml`, reload it with `curl -X POST http://localhost:9093/-/reload`.
 
-### Tests
+### Tests and Lint
+
+CI runs the same three checks on every push to `main` and every pull request:
 
 ```bash
+.venv/Scripts/ruff check .            # lint (add --fix to auto-fix)
+.venv/Scripts/ruff format --check .   # formatting (drop --check to reformat)
 .venv/Scripts/python -m pytest
 ```
 

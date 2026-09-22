@@ -1,4 +1,5 @@
 """Alert models: the Alertmanager webhook payload (v4) and the source-agnostic AlertEvent used downstream."""
+
 from datetime import datetime
 from typing import Literal
 

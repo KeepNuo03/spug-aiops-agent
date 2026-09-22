@@ -8,6 +8,7 @@ Spug exec is asynchronous:
 
 Usage: python lab/spug_exec_smoke.py [host_name] [command]
 """
+
 import json
 import os
 import re
@@ -32,8 +33,9 @@ def api(client, method, path, token=None, **kwargs):
 
 def run(host_name: str, command: str) -> int:
     with httpx.Client(timeout=30) as client:
-        auth = api(client, "POST", "/account/login/",
-                   json={"username": USERNAME, "password": PASSWORD, "type": "default"})["access_token"]
+        auth = api(
+            client, "POST", "/account/login/", json={"username": USERNAME, "password": PASSWORD, "type": "default"}
+        )["access_token"]
         host = next(h for h in api(client, "GET", "/host/", auth) if h["name"] == host_name)
         task = api(client, "POST", "/exec/do/", auth, json={"host_ids": [host["id"]], "command": command})
 
