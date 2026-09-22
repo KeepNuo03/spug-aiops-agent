@@ -47,7 +47,7 @@ cp .env.example .env    # fill in LLM API key, Spug URL, etc.
 docker compose up -d    # start Prometheus / Alertmanager / Redis and other dependencies
 ```
 
-`docker compose up -d` starts only the infrastructure and the lab; `mcp_server` and `agent_gateway` are behind the `app` profile (`docker compose --profile app up -d`).
+`docker compose up -d` starts the infrastructure, the lab, and `agent_gateway`; `mcp_server` is behind the `app` profile (`docker compose --profile app up -d`) until it is implemented.
 
 ### Local Lab
 
@@ -55,21 +55,32 @@ docker compose up -d    # start Prometheus / Alertmanager / Redis and other depe
 |-----------|---------|-------|
 | Spug | http://localhost:8080 | `admin` / `spug.dev` (local dev only) |
 | Prometheus | http://localhost:9090 | scrapes `lab-host:9100` |
-| Alertmanager | http://localhost:9093 | webhook → `webhook-echo` (temporary receiver) |
+| Alertmanager | http://localhost:9093 | webhook → `agent_gateway` |
+| Agent Gateway | http://localhost:8001 | `POST /webhook/alertmanager`, `GET /healthz` |
 | lab-host | SSH `localhost:2222` | Ubuntu + sshd + stress-ng + node_exporter; registered in Spug as `lab-host` via `host.docker.internal:2222` |
 
 Verify the full alert path:
 
 ```bash
-python -m venv .venv && .venv/Scripts/pip install -r lab/requirements.txt
+python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
+# Register lab-host in Spug (or re-verify it after the environment is rebuilt)
+.venv/Scripts/python lab/spug_register_host.py
 # Run a command on lab-host through Spug's API
 .venv/Scripts/python lab/spug_exec_smoke.py lab-host "uptime"
 # Inject a CPU fault through Spug; HostHighCpuUsage fires after ~2 minutes
-.venv/Scripts/python lab/spug_exec_smoke.py lab-host "setsid nohup stress-ng --cpu 0 --timeout 200s >/dev/null 2>&1 < /dev/null &"
-docker logs -f aiops-webhook-echo
+.venv/Scripts/python lab/spug_exec_smoke.py lab-host "setsid nohup stress-ng --cpu 0 --timeout 150s >/dev/null 2>&1 < /dev/null &"
+docker logs -f aiops-agent-gateway
 ```
 
-Captured payloads are appended to `lab/captured/alerts.jsonl`; a sample is kept in `tests/fixtures/`.
+After editing `prometheus/alertmanager.yml`, reload it with `curl -X POST http://localhost:9093/-/reload`.
+
+### Tests
+
+```bash
+.venv/Scripts/python -m pytest
+```
+
+A real Alertmanager payload captured from the lab is kept in `tests/fixtures/`.
 
 Spug itself is a standalone runtime dependency and must be deployed separately (see the [official Spug install docs](https://ops.spug.cc/docs/install-docker)). This repo calls it over HTTP only and does not include or modify its source code.
 

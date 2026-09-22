@@ -8,6 +8,5 @@ route:
 receivers:
   - name: agent-gateway
     webhook_configs:
-      # Switch to http://agent_gateway:8001/webhook/alertmanager once the gateway implements it.
-      - url: "http://webhook-echo:8001/webhook/alertmanager"
+      - url: "http://agent_gateway:8001/webhook/alertmanager"
         send_resolved: true

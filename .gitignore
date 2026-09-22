@@ -18,7 +18,6 @@ data/
 logs/
 *.log
 chroma_db/
-lab/captured/
 
 # IDE / OS
 .idea/

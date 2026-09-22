@@ -34,23 +34,18 @@ services:
     ports:
       - "2222:22"
       - "9100:9100"
-
-  # Temporary Alertmanager receiver until agent_gateway implements /webhook/alertmanager.
-  webhook-echo:
-    image: python:3.11-alpine
-    container_name: aiops-webhook-echo
-    restart: unless-stopped
-    command: ["python", "-u", "/app/webhook_echo.py"]
     volumes:
-      - ./lab/webhook_echo.py:/app/webhook_echo.py:ro
-      - ./lab/captured:/captured
+      # Keeps Spug's installed SSH key across container re-creation.
+      - lab-host-ssh:/root/.ssh
 
   mcp_server:
     profiles: ["app"]
     build: ./mcp_server
     container_name: aiops-mcp-server
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8765:8765"
     depends_on:
@@ -58,15 +53,18 @@ services:
       - redis
 
   agent_gateway:
-    profiles: ["app"]
     build: ./agent_gateway
     container_name: aiops-agent-gateway
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8001:8001"
     depends_on:
-      - mcp_server
       - redis
+
+volumes:
+  lab-host-ssh:
 
 # Spug runs as a separate runtime dependency (see README "License"); it is not orchestrated here.
