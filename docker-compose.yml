@@ -34,6 +34,9 @@ services:
     ports:
       - "2222:22"
       - "9100:9100"
+    volumes:
+      # Keeps Spug's installed SSH key across container re-creation.
+      - lab-host-ssh:/root/.ssh
 
   # Temporary Alertmanager receiver until agent_gateway implements /webhook/alertmanager.
   webhook-echo:
@@ -68,5 +71,8 @@ services:
     depends_on:
       - mcp_server
       - redis
+
+volumes:
+  lab-host-ssh:
 
 # Spug runs as a separate runtime dependency (see README "License"); it is not orchestrated here.

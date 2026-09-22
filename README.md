@@ -62,6 +62,8 @@ Verify the full alert path:
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r lab/requirements.txt
+# Register lab-host in Spug (or re-verify it after the environment is rebuilt)
+.venv/Scripts/python lab/spug_register_host.py
 # Run a command on lab-host through Spug's API
 .venv/Scripts/python lab/spug_exec_smoke.py lab-host "uptime"
 # Inject a CPU fault through Spug; HostHighCpuUsage fires after ~2 minutes
