@@ -1,4 +1,5 @@
 """Agent Gateway FastAPI entrypoint."""
+
 from fastapi import FastAPI
 
 from alerts import AlertmanagerPayload, to_events

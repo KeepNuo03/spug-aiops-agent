@@ -2,6 +2,7 @@
 
 Usage: python lab/spug_register_host.py
 """
+
 import os
 import sys
 
@@ -21,13 +22,17 @@ HOST = {
 
 def main() -> None:
     with httpx.Client(timeout=60) as client:
-        auth = api(client, "POST", "/account/login/",
-                   json={"username": USERNAME, "password": PASSWORD, "type": "default"})["access_token"]
+        auth = api(
+            client, "POST", "/account/login/", json={"username": USERNAME, "password": PASSWORD, "type": "default"}
+        )["access_token"]
         existing = next((h for h in api(client, "GET", "/host/", auth) if h["name"] == HOST["name"]), None)
-        group_ids = existing["group_ids"] if existing else [api(client, "GET", "/host/group/", auth)["treeData"][0]["key"]]
+        group_ids = (
+            existing["group_ids"] if existing else [api(client, "GET", "/host/group/", auth)["treeData"][0]["key"]]
+        )
         body = {**HOST, "group_ids": group_ids, **({"id": existing["id"]} if existing else {})}
         host = api(client, "POST", "/host/", auth, json=body)
-    print(f"{'re-verified' if existing else 'registered'} {host['name']} (id={host['id']}, verified={host['is_verified']})")
+    action = "re-verified" if existing else "registered"
+    print(f"{action} {host['name']} (id={host['id']}, verified={host['is_verified']})")
 
 
 if __name__ == "__main__":

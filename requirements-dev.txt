@@ -1,3 +1,4 @@
 -r agent_gateway/requirements.txt
 -r lab/requirements.txt
 pytest
+ruff
