@@ -6,9 +6,15 @@ from fastapi.testclient import TestClient
 
 from alerts import AlertmanagerPayload, to_events
 from main import app
+from processing import _dedup
 
 FIXTURE = Path(__file__).parent / "fixtures" / "alertmanager_cpu_high_firing.json"
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clear_dedup():
+    _dedup.clear()
 
 
 @pytest.fixture
@@ -19,14 +25,25 @@ def payload() -> dict:
 def test_firing_alert_is_accepted(payload):
     resp = client.post("/webhook/alertmanager", json=payload)
     assert resp.status_code == 200
-    assert resp.json() == {"received": 1, "firing": 1}
+    assert resp.json() == {"received": 1, "accepted": 1}
 
 
-def test_resolved_alert_is_not_counted_as_firing(payload):
+def test_resolved_alert_is_not_handled(payload):
     payload["status"] = "resolved"
     payload["alerts"][0]["status"] = "resolved"
     resp = client.post("/webhook/alertmanager", json=payload)
-    assert resp.json() == {"received": 1, "firing": 0}
+    assert resp.json() == {"received": 1, "accepted": 0}
+
+
+def test_repeated_alert_is_handled_once(payload):
+    assert client.post("/webhook/alertmanager", json=payload).json()["accepted"] == 1
+    assert client.post("/webhook/alertmanager", json=payload).json()["accepted"] == 0
+
+
+def test_alert_firing_again_is_a_new_incident(payload):
+    client.post("/webhook/alertmanager", json=payload)
+    payload["alerts"][0]["startsAt"] = "2026-09-23T09:30:00.000Z"
+    assert client.post("/webhook/alertmanager", json=payload).json()["accepted"] == 1
 
 
 def test_invalid_payload_is_rejected():
