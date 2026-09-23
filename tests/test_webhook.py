@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import processing
 from alerts import AlertmanagerPayload, to_events
 from main import app
 from processing import _dedup
@@ -15,6 +16,19 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_dedup():
     _dedup.clear()
+
+
+@pytest.fixture(autouse=True)
+def stub_graph(monkeypatch):
+    """Background handling runs inside the test client; keep it away from the real MCP server."""
+    handled = []
+
+    async def fake_run(event, intent):
+        handled.append((event, intent))
+        return {"evidence": []}
+
+    monkeypatch.setattr(processing, "run", fake_run)
+    return handled
 
 
 @pytest.fixture

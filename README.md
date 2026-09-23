@@ -13,8 +13,8 @@ Work in progress. The first milestone is the thinnest end-to-end slice for the `
 - [x] Local lab: Spug + Prometheus + Alertmanager + lab host, fault injection through Spug
 - [x] Agent Gateway receives and normalizes Alertmanager webhooks
 - [x] CI: lint, format check, tests
-- [ ] Rule-based intent classification
-- [ ] MCP tools (`query_metrics`, `exec_command`) wired into a fixed monitor → diagnose route
+- [x] Rule-based intent classification
+- [x] MCP tools (`query_metrics`, `exec_command`) wired into a fixed route that collects evidence
 - [ ] LLM diagnosis
 - [ ] Then: HITL, other intents, memory, tool retry, evaluation
 
@@ -59,7 +59,7 @@ cp .env.example .env    # fill in LLM API key, Spug URL, etc.
 docker compose up -d    # start Prometheus / Alertmanager / Redis and other dependencies
 ```
 
-`docker compose up -d` starts the infrastructure, the lab, and `agent_gateway`; `mcp_server` is behind the `app` profile (`docker compose --profile app up -d`) until it is implemented.
+`docker compose up -d` starts everything: infrastructure, the lab, `mcp_server` and `agent_gateway`.
 
 ### Local Lab
 
@@ -69,6 +69,7 @@ docker compose up -d    # start Prometheus / Alertmanager / Redis and other depe
 | Prometheus | http://localhost:9090 | scrapes `lab-host:9100` |
 | Alertmanager | http://localhost:9093 | webhook → `agent_gateway` |
 | Agent Gateway | http://localhost:8001 | `POST /webhook/alertmanager`, `GET /healthz` |
+| MCP Server | http://localhost:8765/mcp | `query_metrics`, `exec_command` (read-only commands only) |
 | lab-host | SSH `localhost:2222` | Ubuntu + sshd + stress-ng + node_exporter; registered in Spug as `lab-host` via `host.docker.internal:2222` |
 
 Verify the full alert path:

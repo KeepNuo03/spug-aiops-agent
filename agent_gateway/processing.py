@@ -9,6 +9,7 @@ times out.
 from collections import OrderedDict
 
 from alerts import AlertEvent
+from graph.supervisor import run
 from intent.classifier import classify
 from observability.structured_log import get_logger, log_event
 
@@ -46,7 +47,7 @@ def skip_reason(event: AlertEvent) -> str | None:
     return None
 
 
-def handle_alert(event: AlertEvent) -> None:
+async def handle_alert(event: AlertEvent) -> None:
     intent = classify(event)
     log_event(
         log,
@@ -61,3 +62,12 @@ def handle_alert(event: AlertEvent) -> None:
     if intent.name == "unknown":
         log_event(log, "handling_skipped", fingerprint=event.fingerprint, reason="unknown_intent")
         return
+
+    state = await run(event, intent)
+    log_event(
+        log,
+        "handling_finished",
+        fingerprint=event.fingerprint,
+        intent=intent.name,
+        evidence_probes=len(state.get("evidence", [])),
+    )

@@ -8,4 +8,5 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["agent_gateway"]
+asyncio_mode = "auto"
+pythonpath = ["agent_gateway", "mcp_server"]
