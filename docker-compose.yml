@@ -39,18 +39,19 @@ services:
       - lab-host-ssh:/root/.ssh
 
   mcp_server:
-    profiles: ["app"]
     build: ./mcp_server
     container_name: aiops-mcp-server
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
+    environment:
+      PROMETHEUS_URL: http://prometheus:9090
+      SPUG_BASE_URL: http://host.docker.internal:8080
     ports:
       - "8765:8765"
     depends_on:
       - prometheus
-      - redis
 
   agent_gateway:
     build: ./agent_gateway
@@ -59,9 +60,12 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      MCP_SERVER_URL: http://mcp_server:8765/mcp
     ports:
       - "8001:8001"
     depends_on:
+      - mcp_server
       - redis
 
 volumes:
