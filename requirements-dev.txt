@@ -1,4 +1,6 @@
 -r agent_gateway/requirements.txt
+-r mcp_server/requirements.txt
 -r lab/requirements.txt
 pytest
+pytest-asyncio
 ruff
