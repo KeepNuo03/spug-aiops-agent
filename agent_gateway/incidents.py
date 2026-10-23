@@ -20,6 +20,8 @@ Status = Literal[
     "awaiting_approval",
     "executing",
     "completed",
+    "unresolved",
+    "expired",
     "skipped",
     "failed",
 ]

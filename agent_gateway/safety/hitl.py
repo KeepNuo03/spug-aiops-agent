@@ -38,6 +38,10 @@ class ApprovalRequest(BaseModel):
             self.expires_at = self.requested_at + APPROVAL_TTL
         return self
 
+    def is_expired(self, now: datetime | None = None) -> bool:
+        """An approval is a judgement about a host at a moment; the host moves on without it."""
+        return (now or datetime.now(UTC)) >= self.expires_at
+
 
 class Decision(BaseModel):
     decision: Literal["approve", "reject"]

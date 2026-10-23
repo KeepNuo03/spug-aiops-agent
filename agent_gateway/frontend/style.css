@@ -72,7 +72,8 @@ aside {
 .badge.live { color: var(--ok); border-color: var(--ok); }
 .badge.down { color: var(--bad); border-color: var(--bad); }
 .status-completed { color: var(--ok); border-color: var(--ok); }
-.status-failed, .status-skipped { color: var(--bad); border-color: var(--bad); }
+.status-failed, .status-skipped, .status-unresolved { color: var(--bad); border-color: var(--bad); }
+.status-expired { color: var(--muted); }
 .status-collecting, .status-diagnosing, .status-classified, .status-received, .status-executing { color: var(--warn); border-color: var(--warn); }
 .status-awaiting_approval { color: var(--accent); border-color: var(--accent); }
 

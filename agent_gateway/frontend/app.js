@@ -83,8 +83,10 @@ async function decide(incidentId, decision, actionIndex) {
 
 function renderApproval(incident) {
   const approval = incident.approval;
-  const pending = incident.status === "awaiting_approval";
-  const nodes = [el("h3", null, pending ? "Awaiting approval" : "Proposed remediation")];
+  const expired = new Date(approval.expires_at) <= new Date();
+  const pending = incident.status === "awaiting_approval" && !expired;
+  const heading = incident.status === "awaiting_approval" && expired ? "Approval expired" : "Proposed remediation";
+  const nodes = [el("h3", null, pending ? "Awaiting approval" : heading)];
 
   for (const proposed of approval.actions) {
     const card = el("div", "card");
@@ -94,6 +96,7 @@ function renderApproval(incident) {
     const kv = el("div", "kv");
     kv.appendChild(el("span", `badge risk-${proposed.risk}`, proposed.risk));
     if (proposed.blocked_reason) kv.appendChild(el("span", "badge", `not executable: ${proposed.blocked_reason}`));
+    if (expired && proposed.executable) kv.appendChild(el("span", "badge", "expired — run it yourself if still needed"));
     card.appendChild(kv);
 
     if (pending && proposed.executable) {

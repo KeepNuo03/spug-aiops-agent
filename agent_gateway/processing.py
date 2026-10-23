@@ -17,6 +17,10 @@ from safety.hitl import Decision
 
 log = get_logger("agent_gateway")
 
+# Statuses the end of a run may overwrite. A run that already concluded something about the host —
+# it recovered, it did not, the approval expired, it crashed — keeps that verdict.
+SETTLED_BY_FINISH = {"received", "classified", "collecting", "diagnosing", "executing", "skipped"}
+
 
 class Deduplicator:
     def __init__(self, capacity: int = 1000) -> None:
@@ -98,7 +102,7 @@ def _finish(incident_id: str, fingerprint: str, intent_name: str, state: dict) -
         evidence_probes=len(state.get("evidence", [])),
     )
     current = store.get(incident_id)
-    if current and current.status != "failed":
+    if current and current.status in SETTLED_BY_FINISH:
         store.update(incident_id, event="handling finished", status="completed")
 
 
