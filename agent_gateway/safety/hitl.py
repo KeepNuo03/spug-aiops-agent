@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from diagnosis.models import RemediationAction
 from safety.risk import Risk, classify, render_command
@@ -28,7 +28,15 @@ class ApprovalRequest(BaseModel):
     root_cause: str
     actions: list[ProposedAction]
     requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + APPROVAL_TTL)
+    expires_at: datetime = None  # type: ignore[assignment]  # filled from requested_at below
+
+    @model_validator(mode="after")
+    def _set_expiry(self):
+        # Derived from requested_at rather than read from the clock again, so the window is
+        # exactly the TTL instead of the TTL plus however long validation took.
+        if self.expires_at is None:
+            self.expires_at = self.requested_at + APPROVAL_TTL
+        return self
 
 
 class Decision(BaseModel):
