@@ -38,6 +38,26 @@ READ_ONLY_COMMANDS = frozenset(
 # Anything that chains, redirects or substitutes: only plain pipelines are allowed.
 FORBIDDEN_SHELL_SYNTAX = re.compile(r"[;&<>`\n]|\$\(")
 
+# Pids below this belong to init and the container's own supervisor; killing them takes the host
+# down rather than fixing it.
+LOWEST_KILLABLE_PID = 10
+
+# Killing these takes the host out of reach, or kills the agent's own way back in.
+PROTECTED_PROCESSES = frozenset(
+    {"init", "systemd", "sshd", "dockerd", "containerd", "kthreadd", "bash", "sh", "supervisord", "spug"}
+)
+
+# Rendered into a command, so the name has to be a plain token and nothing else.
+PROCESS_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,31}$")
+
+
+def ensure_killable_name(name: str) -> None:
+    """Raise CommandRejected unless this process name is safe to render into a pkill."""
+    if not PROCESS_NAME.match(name or ""):
+        raise CommandRejected("process name is missing or not a plain name")
+    if name.lower() in PROTECTED_PROCESSES:
+        raise CommandRejected(f"'{name}' is a protected process")
+
 
 class CommandRejected(ValueError):
     pass
