@@ -25,7 +25,13 @@ Rules:
 - Every claim must come from a probe; list the probe names you used in evidence_used.
 - If a probe is UNAVAILABLE or the evidence does not explain the alert, say so in root_cause and
   lower your confidence. An honest "cannot determine from this evidence" beats a guess.
-- suggested_commands are proposals for a human to review; they are not executed.
+- Actions are proposals. A human approves them before anything runs, so propose the smallest
+  action that addresses the cause, and only when the evidence identifies a culprit.
+- Use "kill" with a pid you can see in the evidence when a single process is at fault. When many
+  processes share one name and all of them must go, use "kill_by_name" with that exact name.
+  For anything else use "manual" and put the command an engineer should run in the command field.
+- Propose an executable action first when the evidence supports one; a manual command the operator
+  has to retype is a worse answer than a precise action they can approve.
 
 Reply with JSON only, matching this schema:
 {
@@ -34,7 +40,11 @@ Reply with JSON only, matching this schema:
   "confidence": 0.0 to 1.0,
   "evidence_used": ["probe_name", ...],
   "culprit_process": {"name": "...", "pid": 123, "cpu_percent": 99.9} or null,
-  "suggested_commands": [{"command": "...", "reason": "..."}]
+  "actions": [
+    {"action": "kill", "pid": 123, "reason": "why this ends the incident"},
+    {"action": "kill_by_name", "process_name": "stress-ng", "reason": "why all of them must go"},
+    {"action": "manual", "command": "...", "reason": "what an engineer should check or do"}
+  ]
 }"""
 
 USER_PROMPT = """## Alert

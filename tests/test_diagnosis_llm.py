@@ -12,7 +12,7 @@ VALID_REPLY = json.dumps(
         "confidence": 0.95,
         "evidence_used": ["top_processes"],
         "culprit_process": {"name": "stress-ng", "pid": 344, "cpu_percent": 100.0},
-        "suggested_commands": [{"command": "kill -9 344", "reason": "stop the load generator"}],
+        "actions": [{"action": "kill", "pid": 344, "reason": "stop the load generator"}],
     }
 )
 
@@ -44,7 +44,8 @@ async def test_valid_reply_is_parsed(fake_llm):
     fake_llm(VALID_REPLY)
     answer = await diagnose("prompt")
     assert answer.culprit_process.name == "stress-ng"
-    assert answer.suggested_commands[0].command == "kill -9 344"
+    assert answer.actions[0].action == "kill"
+    assert answer.actions[0].pid == 344
 
 
 async def test_request_is_deterministic_and_json_only(fake_llm):
