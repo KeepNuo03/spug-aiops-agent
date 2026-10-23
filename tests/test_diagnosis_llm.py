@@ -1,7 +1,6 @@
 import json
 
 import pytest
-from tests.test_intent import make_event
 
 from diagnosis import llm
 from diagnosis.llm import build_prompt, diagnose
@@ -77,7 +76,7 @@ async def test_two_bad_replies_raise(fake_llm):
         await diagnose("prompt")
 
 
-def test_prompt_carries_alert_context_and_evidence():
+def test_prompt_carries_alert_context_and_evidence(make_event):
     prompt = build_prompt(make_event(), "### top_processes\n344 stress-ng")
     assert "lab-host" in prompt
     assert "HostHighCpuUsage" in prompt
