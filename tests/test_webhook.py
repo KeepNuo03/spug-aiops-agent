@@ -23,8 +23,8 @@ def stub_graph(monkeypatch):
     """Background handling runs inside the test client; keep it away from the real MCP server."""
     handled = []
 
-    async def fake_run(event, intent):
-        handled.append((event, intent))
+    async def fake_run(event, intent, incident_id):
+        handled.append((event, intent, incident_id))
         return {"evidence": []}
 
     monkeypatch.setattr(processing, "run", fake_run)

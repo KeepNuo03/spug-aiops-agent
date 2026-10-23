@@ -26,5 +26,5 @@ def build_graph():
 _graph = build_graph()
 
 
-async def run(event: AlertEvent, intent: Intent) -> AIOpsState:
-    return await _graph.ainvoke({"event": event, "intent": intent})
+async def run(event: AlertEvent, intent: Intent, incident_id: str) -> AIOpsState:
+    return await _graph.ainvoke({"event": event, "intent": intent, "incident_id": incident_id})
