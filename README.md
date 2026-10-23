@@ -18,7 +18,11 @@ Work in progress. The first milestone is the thinnest end-to-end slice for the `
 - [x] LLM diagnosis, cross-checked against the evidence
 - [x] Web UI: incidents, live timeline, evidence and diagnosis
 - [x] Human-in-the-loop approval, and remediation the operator approves
-- [ ] Then: post-remediation verification, approval expiry, other intents, memory, evaluation
+- [x] Verification that the remediation actually helped, and approval expiry
+- [ ] Then: other intents (memory, disk, network, service down), memory, tool retry, evaluation
+
+The `cpu_high` path is complete end to end: a fault is detected, diagnosed, remediated on approval,
+and the result is verified — `100% → 0.2%, alert cleared` in the lab.
 
 ### Remediation safety
 
@@ -27,6 +31,10 @@ kill a pid, or kill every process with an exact name. The model names the target
 rendered from it here, so a model reply never becomes a shell string. A target that does not appear
 in the collected evidence, a system pid, or a protected process name is shown without an approval
 button, and the MCP tool refuses it again on its own.
+
+An approval expires after 30 minutes: it is a judgement about a host at a moment, and the host moves
+on without it. After a remediation runs, the agent waits for the metric window to clear the fault
+and queries again, so an incident records whether the host recovered — not merely what was run.
 
 **The approval endpoint is unauthenticated**, which is fine for a local lab and not for anything
 else: it is the step that changes a host, so a real deployment needs an authenticated operator here.

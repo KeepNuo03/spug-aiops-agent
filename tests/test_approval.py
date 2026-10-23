@@ -1,6 +1,9 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from diagnosis.models import CulpritProcess, RemediationAction, VerifiedDiagnosis
+from diagnosis.verify_outcome import Outcome
 from graph import approval_agent
 from graph.approval_agent import execute
 from incidents import store
@@ -39,7 +42,11 @@ def executed(monkeypatch):
         calls.append((name, arguments))
         return {"host": arguments["host"], "command": "kill -TERM 344", "exit_status": 0, "output": ""}
 
+    async def fake_verify(host, **kwargs):
+        return Outcome(recovered=True, cpu_percent=0.3, detail="cpu is 0.3%, back under the 80% threshold")
+
     monkeypatch.setattr(approval_agent, "call_tool", fake_call_tool)
+    monkeypatch.setattr(approval_agent, "verify_recovery", fake_verify)
     return calls
 
 
@@ -76,6 +83,46 @@ async def test_state_reloaded_from_the_checkpointer_still_executes(incident, exe
     await execute(reloaded)
 
     assert executed == [("kill_process", {"host": "lab-host", "pid": 344})]
+
+
+async def test_recovery_is_verified_after_the_remediation(incident, executed, make_event):
+    state = state_for(incident, Decision(decision="approve", action_index=0))
+    state["event"] = make_event()
+    result = await execute(state)
+
+    assert result["outcome"]["recovered"] is True
+    record = store.get(incident.id)
+    assert record.status == "completed"
+    assert [e.event for e in record.timeline][-3:] == ["remediation executed", "verifying recovery", "recovered"]
+
+
+async def test_a_remediation_that_does_not_help_is_recorded_as_unresolved(incident, executed, monkeypatch, make_event):
+    async def still_broken(host, **kwargs):
+        return Outcome(recovered=False, cpu_percent=99.0, detail="cpu is still 99.0%")
+
+    monkeypatch.setattr(approval_agent, "verify_recovery", still_broken)
+    state = state_for(incident, Decision(decision="approve", action_index=0))
+    state["event"] = make_event()
+    await execute(state)
+
+    record = store.get(incident.id)
+    assert record.status == "unresolved"
+    assert "not resolved" in [e.event for e in record.timeline]
+
+
+async def test_an_expired_approval_executes_nothing(incident, executed, make_event):
+    state = state_for(incident, Decision(decision="approve", action_index=0))
+    state["event"] = make_event()
+    request = state["approval"]
+    request.requested_at = datetime.now(UTC) - timedelta(minutes=31)
+    request.expires_at = request.requested_at + timedelta(minutes=30)
+
+    await execute(state)
+
+    assert executed == []
+    record = store.get(incident.id)
+    assert record.status == "expired"
+    assert "approval expired" in [e.event for e in record.timeline]
 
 
 async def test_rejection_executes_nothing(incident, executed, make_event):

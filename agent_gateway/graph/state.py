@@ -22,3 +22,4 @@ class AIOpsState(TypedDict, total=False):
     approval: dict[str, Any]
     decision: dict[str, Any]
     remediation: dict[str, Any]
+    outcome: dict[str, Any]

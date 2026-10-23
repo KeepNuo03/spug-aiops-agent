@@ -9,6 +9,7 @@ from langgraph.types import interrupt
 from alerts import AlertEvent
 from diagnosis.evidence import evidence_text
 from diagnosis.models import VerifiedDiagnosis
+from diagnosis.verify_outcome import verify_recovery
 from graph.state import AIOpsState, as_model
 from incidents import store
 from intent.classifier import Intent
@@ -71,6 +72,16 @@ async def execute(state: AIOpsState) -> AIOpsState:
         store.update(incident_id, event="remediation rejected", detail=decision.note or "declined by operator")
         return {}
 
+    if request.is_expired():
+        log_event(log, "approval_expired", fingerprint=fingerprint, requested_at=request.requested_at)
+        store.update(
+            incident_id,
+            event="approval expired",
+            detail="the host has moved on since this was proposed; nothing was executed",
+            status="expired",
+        )
+        return {}
+
     chosen = next(
         (a for a in request.actions if a.executable and (decision.action_index in (None, a.index))),
         None,
@@ -106,4 +117,22 @@ async def execute(state: AIOpsState) -> AIOpsState:
         event="remediation rejected by policy" if rejected else "remediation executed",
         detail=rejected or f"{chosen.command} (exit {result.get('exit_status')})",
     )
-    return {"remediation": result}
+    if rejected:
+        return {"remediation": result}
+
+    store.update(incident_id, event="verifying recovery", detail="re-reading cpu once the metric window clears")
+    outcome = await verify_recovery(request.host)
+    log_event(
+        log,
+        "recovery_verified",
+        fingerprint=fingerprint,
+        recovered=outcome.recovered,
+        cpu_percent=outcome.cpu_percent,
+    )
+    store.update(
+        incident_id,
+        event="recovered" if outcome.recovered else "not resolved",
+        detail=outcome.detail,
+        status="completed" if outcome.recovered else "unresolved",
+    )
+    return {"remediation": result, "outcome": outcome.model_dump(mode="json")}
