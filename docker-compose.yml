@@ -1,6 +1,8 @@
 services:
   redis:
-    image: redis:7-alpine
+    # redis-stack-server, not plain redis: the LangGraph checkpointer indexes checkpoints with
+    # RediSearch, which the stock image does not ship.
+    image: redis/redis-stack-server:7.2.0-v11
     container_name: aiops-redis
     restart: unless-stopped
     ports:

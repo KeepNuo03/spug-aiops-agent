@@ -70,14 +70,42 @@ function renderDiagnosis(diagnosis) {
     nodes.push(cited);
   }
 
-  if (diagnosis.suggested_commands?.length) {
-    nodes.push(el("h3", null, "Suggested commands (not executed)"));
-    for (const suggestion of diagnosis.suggested_commands) {
-      const card = el("div", "card");
-      card.appendChild(el("div", "command", suggestion.command));
-      card.appendChild(el("p", "muted", suggestion.reason));
-      nodes.push(card);
+  return nodes;
+}
+
+async function decide(incidentId, decision, actionIndex) {
+  await fetch(`/api/incidents/${incidentId}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision, action_index: actionIndex ?? null }),
+  });
+}
+
+function renderApproval(incident) {
+  const approval = incident.approval;
+  const pending = incident.status === "awaiting_approval";
+  const nodes = [el("h3", null, pending ? "Awaiting approval" : "Proposed remediation")];
+
+  for (const proposed of approval.actions) {
+    const card = el("div", "card");
+    card.appendChild(el("div", "command", proposed.command ?? proposed.action.action));
+    card.appendChild(el("p", "muted", proposed.action.reason));
+
+    const kv = el("div", "kv");
+    kv.appendChild(el("span", `badge risk-${proposed.risk}`, proposed.risk));
+    if (proposed.blocked_reason) kv.appendChild(el("span", "badge", `not executable: ${proposed.blocked_reason}`));
+    card.appendChild(kv);
+
+    if (pending && proposed.executable) {
+      const actions = el("div", "kv");
+      const approve = el("button", "btn approve", "Approve and run");
+      approve.addEventListener("click", () => decide(incident.id, "approve", proposed.index));
+      const reject = el("button", "btn reject", "Reject");
+      reject.addEventListener("click", () => decide(incident.id, "reject", proposed.index));
+      actions.append(approve, reject);
+      card.appendChild(actions);
     }
+    nodes.push(card);
   }
   return nodes;
 }
@@ -139,6 +167,8 @@ function renderDetail() {
     nodes.push(el("h3", null, "Diagnosis"));
     nodes.push(...renderDiagnosis(incident.diagnosis));
   }
+
+  if (incident.approval?.actions?.length) nodes.push(...renderApproval(incident));
 
   nodes.push(el("h3", null, "Timeline"));
   const timeline = el("ul", "timeline");

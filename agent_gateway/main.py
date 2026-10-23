@@ -11,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from alerts import AlertmanagerPayload, to_events
 from incidents import Incident, store
 from observability.structured_log import get_logger, log_event
-from processing import handle_alert, skip_reason
+from processing import apply_decision, handle_alert, skip_reason
+from safety.hitl import Decision
 
 FRONTEND = Path(__file__).parent / "frontend"
 HEARTBEAT_SECONDS = 15
@@ -50,6 +51,24 @@ def get_incident(incident_id: str) -> Incident:
     if incident is None:
         raise HTTPException(status_code=404, detail="no such incident")
     return incident
+
+
+@app.post("/api/incidents/{incident_id}/decision")
+async def decide(incident_id: str, decision: Decision, background: BackgroundTasks) -> dict:
+    """Approve or reject the remediation an incident is waiting on.
+
+    The lab gateway has no authentication: anyone who can reach it can approve. A real deployment
+    needs an authenticated operator here, since this is the step that changes a host.
+    """
+    incident = store.get(incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail="no such incident")
+    if incident.status != "awaiting_approval":
+        raise HTTPException(status_code=409, detail=f"incident is {incident.status}, not awaiting approval")
+
+    log_event(log, "decision_received", incident_id=incident_id, decision=decision.decision)
+    background.add_task(apply_decision, incident_id, decision)
+    return {"accepted": True}
 
 
 async def incident_events():

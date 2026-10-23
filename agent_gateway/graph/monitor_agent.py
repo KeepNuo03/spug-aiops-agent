@@ -6,8 +6,10 @@ with its result (or its error) so a failing probe degrades the evidence instead 
 
 from typing import Any
 
-from graph.state import AIOpsState
+from alerts import AlertEvent
+from graph.state import AIOpsState, as_model
 from incidents import store
+from intent.classifier import Intent
 from observability.structured_log import get_logger, log_event
 from tools_client import call_tool
 
@@ -38,9 +40,10 @@ async def collect_evidence(host: str) -> list[dict[str, Any]]:
 
 
 async def monitor(state: AIOpsState) -> AIOpsState:
-    host = state["intent"].entities.get("hostname")
+    event = as_model(state["event"], AlertEvent)
+    host = as_model(state["intent"], Intent).entities.get("hostname")
     if not host:
-        log_event(log, "monitor_skipped", reason="no_hostname", fingerprint=state["event"].fingerprint)
+        log_event(log, "monitor_skipped", reason="no_hostname", fingerprint=event.fingerprint)
         return {"evidence": []}
 
     incident_id = state.get("incident_id", "")
@@ -51,7 +54,7 @@ async def monitor(state: AIOpsState) -> AIOpsState:
     log_event(
         log,
         "evidence_collected",
-        fingerprint=state["event"].fingerprint,
+        fingerprint=event.fingerprint,
         host=host,
         probes=[e["probe"] for e in evidence],
         failed=failed,
