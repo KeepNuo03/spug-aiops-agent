@@ -39,20 +39,23 @@ async def approval(state: AIOpsState) -> AIOpsState:
         evidence_blob=evidence_text(state.get("evidence", [])),
     )
     executable = [a for a in request.actions if a.executable]
-    log_event(
-        log,
-        "approval_requested",
-        fingerprint=as_model(state["event"], AlertEvent).fingerprint,
-        executable=[a.command for a in executable],
-        blocked=[a.blocked_reason for a in request.actions if a.blocked_reason],
-    )
-    store.update(
-        incident_id,
-        event="awaiting approval",
-        detail=f"{len(executable)} of {len(request.actions)} proposed actions can be executed",
-        status="awaiting_approval",
-        approval=request.model_dump(mode="json"),
-    )
+    current = store.get(incident_id)
+    if current is None or current.status != "awaiting_approval":
+        # Resuming replays this node up to the interrupt, so asking twice would double the record.
+        log_event(
+            log,
+            "approval_requested",
+            fingerprint=as_model(state["event"], AlertEvent).fingerprint,
+            executable=[a.command for a in executable],
+            blocked=[a.blocked_reason for a in request.actions if a.blocked_reason],
+        )
+        store.update(
+            incident_id,
+            event="awaiting approval",
+            detail=f"{len(executable)} of {len(request.actions)} proposed actions can be executed",
+            status="awaiting_approval",
+            approval=request.model_dump(mode="json"),
+        )
 
     decision = Decision.model_validate(interrupt(request.model_dump(mode="json")))
     return {"decision": decision.model_dump(mode="json"), "approval": request.model_dump(mode="json")}
