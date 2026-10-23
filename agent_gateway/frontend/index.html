@@ -7,21 +7,28 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <header>
-    <h1>Spug AIOps Agent</h1>
-    <span id="connection" class="badge">connecting…</span>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Spug AIOps Agent</span>
+    </div>
+    <span id="connection" class="pill pill-muted">connecting…</span>
   </header>
 
   <main>
-    <aside>
-      <h2>Incidents</h2>
-      <ul id="incident-list"></ul>
-      <p id="empty-list" class="muted">No alerts handled yet. Inject a fault to see one appear.</p>
+    <aside class="rail">
+      <div class="rail-head">
+        <h2>Incidents</h2>
+        <span id="incident-count" class="count"></span>
+      </div>
+      <ul id="incident-list" class="incident-list"></ul>
+      <p id="empty-list" class="empty">
+        Nothing handled yet.<br />
+        <span class="empty-hint">Inject a fault and an incident appears here.</span>
+      </p>
     </aside>
 
-    <section id="detail">
-      <p class="muted">Select an incident to see how it was handled.</p>
-    </section>
+    <section id="detail" class="detail"></section>
   </main>
 
   <script src="/static/app.js"></script>
