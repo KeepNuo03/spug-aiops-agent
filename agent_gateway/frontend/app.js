@@ -383,6 +383,7 @@ function applyLanguage(next) {
   document.getElementById("empty-title").textContent = t.emptyTitle;
   document.getElementById("empty-hint").textContent = t.emptyHint;
   applyTheme(currentTheme());
+  renderConnection();
   renderList();
   renderDetail();
 }
@@ -409,20 +410,22 @@ async function loadInitial() {
   renderDetail();
 }
 
+const CONNECTION_TONE = { connecting: "muted", live: "good", reconnecting: "bad" };
+let connectionState = "connecting";
+
+function renderConnection(state = connectionState) {
+  connectionState = state;
+  connectionEl.textContent = t[state];
+  connectionEl.className = `pill pill-${CONNECTION_TONE[state]}`;
+}
+
 function connect() {
   const source = new EventSource("/api/stream");
-  source.onopen = () => {
-    connectionEl.textContent = t.live;
-    connectionEl.className = "pill pill-good";
-  };
+  source.onopen = () => renderConnection("live");
   source.onmessage = (message) => upsert(JSON.parse(message.data));
-  source.onerror = () => {
-    connectionEl.textContent = t.reconnecting;
-    connectionEl.className = "pill pill-bad";
-  };
+  source.onerror = () => renderConnection("reconnecting");
 }
 
 applyLanguage(language);
-connectionEl.textContent = t.connecting;
 loadInitial().then(connect);
 setInterval(renderList, 30_000); // keep the relative timestamps honest
