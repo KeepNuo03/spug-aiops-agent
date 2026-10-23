@@ -15,8 +15,11 @@ Work in progress. The first milestone is the thinnest end-to-end slice for the `
 - [x] CI: lint, format check, tests
 - [x] Rule-based intent classification
 - [x] MCP tools (`query_metrics`, `exec_command`) wired into a fixed route that collects evidence
-- [ ] LLM diagnosis
-- [ ] Then: HITL, other intents, memory, tool retry, evaluation
+- [x] LLM diagnosis, cross-checked against the evidence
+- [ ] Then: HITL approval and remediation, other intents, memory, tool retry, evaluation
+
+Remediation commands are only suggested, never executed: running them needs the human-in-the-loop
+approval step, which comes next.
 
 ## Architecture
 
@@ -55,7 +58,7 @@ spug-aiops-agent/
 ## Quick Start
 
 ```bash
-cp .env.example .env    # fill in LLM API key, Spug URL, etc.
+cp .env.example .env    # set DEEPSEEK_API_KEY; the other defaults work for the local lab
 docker compose up -d    # start Prometheus / Alertmanager / Redis and other dependencies
 ```
 
