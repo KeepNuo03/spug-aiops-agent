@@ -17,10 +17,19 @@ Work in progress. The first milestone is the thinnest end-to-end slice for the `
 - [x] MCP tools (`query_metrics`, `exec_command`) wired into a fixed route that collects evidence
 - [x] LLM diagnosis, cross-checked against the evidence
 - [x] Web UI: incidents, live timeline, evidence and diagnosis
-- [ ] Then: HITL approval and remediation, other intents, memory, tool retry, evaluation
+- [x] Human-in-the-loop approval, and remediation the operator approves
+- [ ] Then: post-remediation verification, approval expiry, other intents, memory, evaluation
 
-Remediation commands are only suggested, never executed: running them needs the human-in-the-loop
-approval step, which comes next.
+### Remediation safety
+
+Nothing runs on a host until an operator approves it, and the agent can only express two actions:
+kill a pid, or kill every process with an exact name. The model names the target; the command is
+rendered from it here, so a model reply never becomes a shell string. A target that does not appear
+in the collected evidence, a system pid, or a protected process name is shown without an approval
+button, and the MCP tool refuses it again on its own.
+
+**The approval endpoint is unauthenticated**, which is fine for a local lab and not for anything
+else: it is the step that changes a host, so a real deployment needs an authenticated operator here.
 
 ## Architecture
 

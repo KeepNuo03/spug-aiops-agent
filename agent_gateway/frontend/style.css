@@ -73,7 +73,8 @@ aside {
 .badge.down { color: var(--bad); border-color: var(--bad); }
 .status-completed { color: var(--ok); border-color: var(--ok); }
 .status-failed, .status-skipped { color: var(--bad); border-color: var(--bad); }
-.status-collecting, .status-diagnosing, .status-classified, .status-received { color: var(--warn); border-color: var(--warn); }
+.status-collecting, .status-diagnosing, .status-classified, .status-received, .status-executing { color: var(--warn); border-color: var(--warn); }
+.status-awaiting_approval { color: var(--accent); border-color: var(--accent); }
 
 .muted { color: var(--muted); font-size: 13px; }
 
@@ -104,6 +105,24 @@ pre {
 }
 
 .command { font-family: ui-monospace, "Cascadia Code", monospace; font-size: 12px; color: var(--accent); }
+
+.risk-dangerous { color: var(--warn); border-color: var(--warn); }
+.risk-forbidden { color: var(--bad); border-color: var(--bad); }
+.risk-safe { color: var(--muted); }
+
+.btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.approve { border-color: var(--ok); color: var(--ok); }
+.btn.reject { border-color: var(--bad); color: var(--bad); }
 .probe { margin-bottom: 10px; }
 .probe .name { font-size: 12px; font-weight: 600; }
 .probe .failed { color: var(--bad); }

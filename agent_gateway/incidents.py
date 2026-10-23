@@ -12,7 +12,17 @@ from pydantic import BaseModel, Field
 
 from alerts import AlertEvent
 
-Status = Literal["received", "classified", "collecting", "diagnosing", "completed", "skipped", "failed"]
+Status = Literal[
+    "received",
+    "classified",
+    "collecting",
+    "diagnosing",
+    "awaiting_approval",
+    "executing",
+    "completed",
+    "skipped",
+    "failed",
+]
 
 
 def _now() -> datetime:
@@ -38,6 +48,7 @@ class Incident(BaseModel):
     timeline: list[TimelineEntry] = Field(default_factory=list)
     evidence: list[dict[str, Any]] = Field(default_factory=list)
     diagnosis: dict[str, Any] | None = None
+    approval: dict[str, Any] | None = None
 
 
 class IncidentStore:

@@ -9,10 +9,11 @@ times out.
 from collections import OrderedDict
 
 from alerts import AlertEvent
-from graph.supervisor import run
+from graph.supervisor import is_awaiting_approval, resume, run
 from incidents import store
 from intent.classifier import classify
 from observability.structured_log import get_logger, log_event
+from safety.hitl import Decision
 
 log = get_logger("agent_gateway")
 
@@ -74,13 +75,41 @@ async def handle_alert(event: AlertEvent) -> None:
         store.update(incident.id, event="handling skipped", detail="intent not recognized", status="skipped")
         return
 
-    state = await run(event, intent, incident.id)
+    try:
+        state = await run(event, intent, incident.id)
+    except Exception as exc:
+        # Nothing is watching a background task, so a crash has to land on the incident itself.
+        log_event(log, "handling_crashed", fingerprint=event.fingerprint, error=str(exc))
+        store.update(incident.id, event="handling crashed", detail=str(exc), status="failed")
+        raise
+
+    _finish(incident.id, event.fingerprint, intent.name, state)
+
+
+def _finish(incident_id: str, fingerprint: str, intent_name: str, state: dict) -> None:
+    if is_awaiting_approval(state):
+        return  # the run is paused; apply_decision resumes it
+
     log_event(
         log,
         "handling_finished",
-        fingerprint=event.fingerprint,
-        intent=intent.name,
+        fingerprint=fingerprint,
+        intent=intent_name,
         evidence_probes=len(state.get("evidence", [])),
     )
-    if store.get(incident.id) and store.get(incident.id).status != "failed":
-        store.update(incident.id, event="handling finished", status="completed")
+    current = store.get(incident_id)
+    if current and current.status != "failed":
+        store.update(incident_id, event="handling finished", status="completed")
+
+
+async def apply_decision(incident_id: str, decision: Decision) -> None:
+    """Resume a paused run once a human has decided."""
+    incident = store.get(incident_id)
+    if incident is None:
+        raise LookupError("no such incident")
+    if incident.status != "awaiting_approval":
+        raise ValueError(f"incident is {incident.status}, not awaiting approval")
+
+    store.update(incident_id, event=f"operator {decision.decision}d", detail=decision.note)
+    state = await resume(incident_id, decision)
+    _finish(incident_id, incident.fingerprint, incident.intent or "", state)

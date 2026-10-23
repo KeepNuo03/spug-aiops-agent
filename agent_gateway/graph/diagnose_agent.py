@@ -2,10 +2,11 @@
 
 import time
 
+from alerts import AlertEvent
 from diagnosis.evidence import evidence_text, render_evidence
 from diagnosis.llm import build_prompt, diagnose
 from diagnosis.verify import verify
-from graph.state import AIOpsState
+from graph.state import AIOpsState, as_model
 from incidents import store
 from observability.structured_log import get_logger, log_event
 
@@ -13,7 +14,7 @@ log = get_logger("agent_gateway")
 
 
 async def diagnose_node(state: AIOpsState) -> AIOpsState:
-    event = state["event"]
+    event = as_model(state["event"], AlertEvent)
     incident_id = state.get("incident_id", "")
     evidence = state.get("evidence", [])
     if not evidence:
@@ -40,4 +41,4 @@ async def diagnose_node(state: AIOpsState) -> AIOpsState:
         detail=f"{report.root_cause} (confidence {report.confidence}, verified {report.verified})",
         diagnosis=report.model_dump(mode="json"),
     )
-    return {"diagnosis": report}
+    return {"diagnosis": report.model_dump(mode="json")}
