@@ -16,6 +16,7 @@ Work in progress. The first milestone is the thinnest end-to-end slice for the `
 - [x] Rule-based intent classification
 - [x] MCP tools (`query_metrics`, `exec_command`) wired into a fixed route that collects evidence
 - [x] LLM diagnosis, cross-checked against the evidence
+- [x] Web UI: incidents, live timeline, evidence and diagnosis
 - [ ] Then: HITL approval and remediation, other intents, memory, tool retry, evaluation
 
 Remediation commands are only suggested, never executed: running them needs the human-in-the-loop
@@ -71,7 +72,7 @@ docker compose up -d    # start Prometheus / Alertmanager / Redis and other depe
 | Spug | http://localhost:8080 | `admin` / `spug.dev` (local dev only) |
 | Prometheus | http://localhost:9090 | scrapes `lab-host:9100` |
 | Alertmanager | http://localhost:9093 | webhook → `agent_gateway` |
-| Agent Gateway | http://localhost:8001 | `POST /webhook/alertmanager`, `GET /healthz` |
+| Agent Gateway | http://localhost:8001 | Web UI; `POST /webhook/alertmanager`, `GET /api/incidents`, `GET /api/stream` (SSE) |
 | MCP Server | http://localhost:8765/mcp | `query_metrics`, `exec_command` (read-only commands only) |
 | lab-host | SSH `localhost:2222` | Ubuntu + sshd + stress-ng + node_exporter; registered in Spug as `lab-host` via `host.docker.internal:2222` |
 

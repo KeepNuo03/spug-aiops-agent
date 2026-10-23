@@ -10,6 +10,7 @@ from collections import OrderedDict
 
 from alerts import AlertEvent
 from graph.supervisor import run
+from incidents import store
 from intent.classifier import classify
 from observability.structured_log import get_logger, log_event
 
@@ -48,6 +49,7 @@ def skip_reason(event: AlertEvent) -> str | None:
 
 
 async def handle_alert(event: AlertEvent) -> None:
+    incident = store.open(event)
     intent = classify(event)
     log_event(
         log,
@@ -59,11 +61,20 @@ async def handle_alert(event: AlertEvent) -> None:
         matched_by=intent.matched_by,
         entities=intent.entities,
     )
+    store.update(
+        incident.id,
+        event="intent classified",
+        detail=f"{intent.name} (confidence {intent.confidence}, by {intent.matched_by})",
+        status="classified",
+        intent=intent.name,
+    )
+
     if intent.name == "unknown":
         log_event(log, "handling_skipped", fingerprint=event.fingerprint, reason="unknown_intent")
+        store.update(incident.id, event="handling skipped", detail="intent not recognized", status="skipped")
         return
 
-    state = await run(event, intent)
+    state = await run(event, intent, incident.id)
     log_event(
         log,
         "handling_finished",
@@ -71,3 +82,5 @@ async def handle_alert(event: AlertEvent) -> None:
         intent=intent.name,
         evidence_probes=len(state.get("evidence", [])),
     )
+    if store.get(incident.id) and store.get(incident.id).status != "failed":
+        store.update(incident.id, event="handling finished", status="completed")

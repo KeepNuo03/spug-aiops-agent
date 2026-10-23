@@ -10,5 +10,6 @@ from intent.classifier import Intent
 class AIOpsState(TypedDict, total=False):
     event: AlertEvent
     intent: Intent
+    incident_id: str
     evidence: list[dict[str, Any]]
     diagnosis: VerifiedDiagnosis

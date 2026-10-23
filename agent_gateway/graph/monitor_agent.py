@@ -7,6 +7,7 @@ with its result (or its error) so a failing probe degrades the evidence instead 
 from typing import Any
 
 from graph.state import AIOpsState
+from incidents import store
 from observability.structured_log import get_logger, log_event
 from tools_client import call_tool
 
@@ -42,13 +43,23 @@ async def monitor(state: AIOpsState) -> AIOpsState:
         log_event(log, "monitor_skipped", reason="no_hostname", fingerprint=state["event"].fingerprint)
         return {"evidence": []}
 
+    incident_id = state.get("incident_id", "")
+    store.update(incident_id, event="collecting evidence", detail=f"probing {host}", status="collecting")
+
     evidence = await collect_evidence(host)
+    failed = [e["probe"] for e in evidence if "error" in e]
     log_event(
         log,
         "evidence_collected",
         fingerprint=state["event"].fingerprint,
         host=host,
         probes=[e["probe"] for e in evidence],
-        failed=[e["probe"] for e in evidence if "error" in e],
+        failed=failed,
+    )
+    store.update(
+        incident_id,
+        event="evidence collected",
+        detail=f"{len(evidence) - len(failed)}/{len(evidence)} probes succeeded",
+        evidence=evidence,
     )
     return {"evidence": evidence}
