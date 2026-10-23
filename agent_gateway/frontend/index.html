@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Spug AIOps Agent</title>
+  <script>
+    // Applied before first paint so a stored theme does not flash the other one.
+    const stored = localStorage.getItem("theme");
+    if (stored) document.documentElement.dataset.theme = stored;
+  </script>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -12,25 +17,30 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Spug AIOps Agent</span>
     </div>
-    <span id="connection" class="pill pill-muted">connecting…</span>
+
+    <div class="toolbar">
+      <button id="theme-toggle" class="icon-btn" type="button"></button>
+      <button id="language-toggle" class="icon-btn" type="button"></button>
+      <span id="connection" class="pill pill-muted">connecting…</span>
+    </div>
   </header>
 
   <main>
     <aside class="rail">
       <div class="rail-head">
-        <h2>Incidents</h2>
+        <h2 id="rail-title">Incidents</h2>
         <span id="incident-count" class="count"></span>
       </div>
       <ul id="incident-list" class="incident-list"></ul>
       <p id="empty-list" class="empty">
-        Nothing handled yet.<br />
-        <span class="empty-hint">Inject a fault and an incident appears here.</span>
+        <span id="empty-title">Nothing handled yet.</span><br />
+        <span id="empty-hint" class="empty-hint">Inject a fault and an incident appears here.</span>
       </p>
     </aside>
 
     <section id="detail" class="detail"></section>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>
