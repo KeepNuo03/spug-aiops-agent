@@ -7,6 +7,7 @@ scenarios exist and the next step stops being obvious.
 from langgraph.graph import END, START, StateGraph
 
 from alerts import AlertEvent
+from graph.diagnose_agent import diagnose_node
 from graph.monitor_agent import monitor
 from graph.state import AIOpsState
 from intent.classifier import Intent
@@ -15,8 +16,10 @@ from intent.classifier import Intent
 def build_graph():
     graph = StateGraph(AIOpsState)
     graph.add_node("monitor", monitor)
+    graph.add_node("diagnose", diagnose_node)
     graph.add_edge(START, "monitor")
-    graph.add_edge("monitor", END)
+    graph.add_edge("monitor", "diagnose")
+    graph.add_edge("diagnose", END)
     return graph.compile()
 
 

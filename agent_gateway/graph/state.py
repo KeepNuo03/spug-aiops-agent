@@ -3,6 +3,7 @@
 from typing import Any, TypedDict
 
 from alerts import AlertEvent
+from diagnosis.models import VerifiedDiagnosis
 from intent.classifier import Intent
 
 
@@ -10,3 +11,4 @@ class AIOpsState(TypedDict, total=False):
     event: AlertEvent
     intent: Intent
     evidence: list[dict[str, Any]]
+    diagnosis: VerifiedDiagnosis
