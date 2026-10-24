@@ -10,25 +10,25 @@ from main import app, incident_events
 client = TestClient(app)
 
 
-@pytest.fixture(autouse=True)
-def empty_store():
-    store._incidents.clear()
+pytestmark = pytest.mark.usefixtures("database")
 
 
 def test_incident_list_starts_empty():
     assert client.get("/api/incidents").json() == []
 
 
-def test_incident_appears_in_the_list(make_event):
-    incident = store.open(make_event())
+async def test_incident_appears_in_the_list(make_event):
+    incident = await store.open(make_event())
     [listed] = client.get("/api/incidents").json()
     assert listed["id"] == incident.id
     assert listed["alertname"] == "HostHighCpuUsage"
 
 
-def test_incident_detail_includes_timeline_and_diagnosis(make_event):
-    incident = store.open(make_event())
-    store.update(incident.id, event="diagnosis completed", status="completed", diagnosis={"root_cause": "stress-ng"})
+async def test_incident_detail_includes_timeline_and_diagnosis(make_event):
+    incident = await store.open(make_event())
+    await store.update(
+        incident.id, event="diagnosis completed", status="completed", diagnosis={"root_cause": "stress-ng"}
+    )
 
     detail = client.get(f"/api/incidents/{incident.id}").json()
     assert detail["status"] == "completed"
@@ -45,8 +45,8 @@ async def test_stream_sends_each_change_as_an_event(make_event):
     pending = asyncio.ensure_future(anext(events))
     await asyncio.sleep(0)  # let the generator subscribe before anything is published
 
-    incident = store.open(make_event())
-    store.update(incident.id, event="diagnosing", status="diagnosing")
+    incident = await store.open(make_event())
+    await store.update(incident.id, event="diagnosing", status="diagnosing")
 
     first = await asyncio.wait_for(pending, timeout=1)
     second = await asyncio.wait_for(anext(events), timeout=1)

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import pytest_asyncio
 
 from diagnosis.models import CulpritProcess, RemediationAction, VerifiedDiagnosis
 from diagnosis.verify_outcome import Outcome
@@ -26,11 +27,10 @@ def diagnosis(**overrides):
     return VerifiedDiagnosis(**{**defaults, **overrides})
 
 
-@pytest.fixture
-def incident(make_event):
-    store._incidents.clear()
-    record = store.open(make_event())
-    store.update(record.id, event="awaiting approval", status="awaiting_approval")
+@pytest_asyncio.fixture
+async def incident(database, make_event):
+    record = await store.open(make_event())
+    await store.update(record.id, event="awaiting approval", status="awaiting_approval")
     return record
 
 
@@ -70,7 +70,7 @@ async def test_approval_runs_the_rendered_command(incident, executed, make_event
 
     assert executed == [("kill_process", {"host": "lab-host", "pid": 344})]
     assert result["remediation"]["exit_status"] == 0
-    assert "remediation executed" in [e.event for e in store.get(incident.id).timeline]
+    assert "remediation executed" in [e.event for e in (await store.get(incident.id)).timeline]
 
 
 async def test_state_reloaded_from_the_checkpointer_still_executes(incident, executed, make_event):
@@ -91,7 +91,7 @@ async def test_recovery_is_verified_after_the_remediation(incident, executed, ma
     result = await execute(state)
 
     assert result["outcome"]["recovered"] is True
-    record = store.get(incident.id)
+    record = await store.get(incident.id)
     assert record.status == "completed"
     assert [e.event for e in record.timeline][-3:] == ["remediation executed", "verifying recovery", "recovered"]
 
@@ -105,7 +105,7 @@ async def test_a_remediation_that_does_not_help_is_recorded_as_unresolved(incide
     state["event"] = make_event()
     await execute(state)
 
-    record = store.get(incident.id)
+    record = await store.get(incident.id)
     assert record.status == "unresolved"
     assert "not resolved" in [e.event for e in record.timeline]
 
@@ -120,7 +120,7 @@ async def test_an_expired_approval_executes_nothing(incident, executed, make_eve
     await execute(state)
 
     assert executed == []
-    record = store.get(incident.id)
+    record = await store.get(incident.id)
     assert record.status == "expired"
     assert "approval expired" in [e.event for e in record.timeline]
 
@@ -131,7 +131,7 @@ async def test_rejection_executes_nothing(incident, executed, make_event):
     await execute(state)
 
     assert executed == []
-    assert "remediation rejected" in [e.event for e in store.get(incident.id).timeline]
+    assert "remediation rejected" in [e.event for e in (await store.get(incident.id)).timeline]
 
 
 async def test_a_non_executable_action_is_never_run(incident, executed, make_event):
@@ -141,7 +141,7 @@ async def test_a_non_executable_action_is_never_run(incident, executed, make_eve
     await execute(state)
 
     assert executed == []
-    assert "nothing executed" in [e.event for e in store.get(incident.id).timeline]
+    assert "nothing executed" in [e.event for e in (await store.get(incident.id)).timeline]
 
 
 async def test_a_policy_rejection_from_the_tool_is_recorded(incident, monkeypatch, make_event):
@@ -153,4 +153,4 @@ async def test_a_policy_rejection_from_the_tool_is_recorded(incident, monkeypatc
     state["event"] = make_event()
     await execute(state)
 
-    assert "remediation rejected by policy" in [e.event for e in store.get(incident.id).timeline]
+    assert "remediation rejected by policy" in [e.event for e in (await store.get(incident.id)).timeline]

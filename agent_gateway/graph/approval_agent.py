@@ -23,12 +23,12 @@ log = get_logger("agent_gateway")
 async def approval(state: AIOpsState) -> AIOpsState:
     incident_id = state.get("incident_id", "")
     if state.get("diagnosis") is None:
-        store.update(incident_id, event="no remediation proposed", detail="nothing to approve")
+        await store.update(incident_id, event="no remediation proposed", detail="nothing to approve")
         return {}
 
     diagnosis = as_model(state["diagnosis"], VerifiedDiagnosis)
     if not diagnosis.actions:
-        store.update(incident_id, event="no remediation proposed", detail="nothing to approve")
+        await store.update(incident_id, event="no remediation proposed", detail="nothing to approve")
         return {}
 
     request = build_request(
@@ -39,7 +39,7 @@ async def approval(state: AIOpsState) -> AIOpsState:
         evidence_blob=evidence_text(state.get("evidence", [])),
     )
     executable = [a for a in request.actions if a.executable]
-    current = store.get(incident_id)
+    current = await store.get(incident_id)
     if current is None or current.status != "awaiting_approval":
         # Resuming replays this node up to the interrupt, so asking twice would double the record.
         log_event(
@@ -49,7 +49,7 @@ async def approval(state: AIOpsState) -> AIOpsState:
             executable=[a.command for a in executable],
             blocked=[a.blocked_reason for a in request.actions if a.blocked_reason],
         )
-        store.update(
+        await store.update(
             incident_id,
             event="awaiting approval",
             detail=f"{len(executable)} of {len(request.actions)} proposed actions can be executed",
@@ -72,12 +72,12 @@ async def execute(state: AIOpsState) -> AIOpsState:
 
     if decision.decision == "reject":
         log_event(log, "remediation_rejected", fingerprint=fingerprint, note=decision.note)
-        store.update(incident_id, event="remediation rejected", detail=decision.note or "declined by operator")
+        await store.update(incident_id, event="remediation rejected", detail=decision.note or "declined by operator")
         return {}
 
     if request.is_expired():
         log_event(log, "approval_expired", fingerprint=fingerprint, requested_at=request.requested_at)
-        store.update(
+        await store.update(
             incident_id,
             event="approval expired",
             detail="the host has moved on since this was proposed; nothing was executed",
@@ -90,10 +90,10 @@ async def execute(state: AIOpsState) -> AIOpsState:
         None,
     )
     if chosen is None:
-        store.update(incident_id, event="nothing executed", detail="approved action is not executable")
+        await store.update(incident_id, event="nothing executed", detail="approved action is not executable")
         return {}
 
-    store.update(incident_id, event="executing remediation", detail=chosen.command, status="executing")
+    await store.update(incident_id, event="executing remediation", detail=chosen.command, status="executing")
     tool, arguments = (
         ("kill_process", {"host": request.host, "pid": chosen.action.pid})
         if chosen.action.action == "kill"
@@ -103,7 +103,7 @@ async def execute(state: AIOpsState) -> AIOpsState:
         result = await call_tool(tool, arguments)
     except Exception as exc:
         log_event(log, "remediation_failed", fingerprint=fingerprint, error=str(exc))
-        store.update(incident_id, event="remediation failed", detail=str(exc), status="failed")
+        await store.update(incident_id, event="remediation failed", detail=str(exc), status="failed")
         return {}
 
     rejected = result.get("rejected")
@@ -115,7 +115,7 @@ async def execute(state: AIOpsState) -> AIOpsState:
         exit_status=result.get("exit_status"),
         rejected=rejected,
     )
-    store.update(
+    await store.update(
         incident_id,
         event="remediation rejected by policy" if rejected else "remediation executed",
         detail=rejected or f"{chosen.command} (exit {result.get('exit_status')})",
@@ -123,7 +123,7 @@ async def execute(state: AIOpsState) -> AIOpsState:
     if rejected:
         return {"remediation": result}
 
-    store.update(incident_id, event="verifying recovery", detail="re-reading cpu once the metric window clears")
+    await store.update(incident_id, event="verifying recovery", detail="re-reading cpu once the metric window clears")
     outcome = await verify_recovery(request.host)
     log_event(
         log,
@@ -132,7 +132,7 @@ async def execute(state: AIOpsState) -> AIOpsState:
         recovered=outcome.recovered,
         cpu_percent=outcome.cpu_percent,
     )
-    store.update(
+    await store.update(
         incident_id,
         event="recovered" if outcome.recovered else "not resolved",
         detail=outcome.detail,

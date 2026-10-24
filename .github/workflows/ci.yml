@@ -8,6 +8,24 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      # The store tests run against a real Postgres: a fake would answer differently exactly where
+      # a store layer gets things wrong — json round-trips, type coercion, concurrent updates.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aiops
+          POSTGRES_USER: aiops
+          POSTGRES_PASSWORD: aiops.local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aiops -d aiops"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,3 +49,5 @@ jobs:
 
       - name: Test
         run: python -m pytest
+        env:
+          TEST_DATABASE_URL: postgresql://aiops:aiops.local@localhost:5432/aiops

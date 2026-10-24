@@ -8,6 +8,26 @@ services:
     ports:
       - "6379:6379"
 
+  postgres:
+    # Incident records and the approval audit trail: business data that is queried and kept.
+    # Redis holds the graph checkpoints, which are runtime state and may be discarded.
+    image: postgres:16-alpine
+    container_name: aiops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aiops
+      POSTGRES_USER: aiops
+      POSTGRES_PASSWORD: aiops.local
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiops -d aiops"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: aiops-prometheus
@@ -64,13 +84,20 @@ services:
         required: false
     environment:
       MCP_SERVER_URL: http://mcp_server:8765/mcp
+      DATABASE_URL: postgresql://aiops:aiops.local@postgres:5432/aiops
+      DIAGNOSIS_LANGUAGE: ${DIAGNOSIS_LANGUAGE:-en}
     ports:
       - "8001:8001"
     depends_on:
-      - mcp_server
-      - redis
+      mcp_server:
+        condition: service_started
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
 volumes:
   lab-host-ssh:
+  postgres-data:
 
 # Spug runs as a separate runtime dependency (see README "License"); it is not orchestrated here.

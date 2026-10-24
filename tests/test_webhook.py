@@ -13,6 +13,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "alertmanager_cpu_high_firing.jso
 client = TestClient(app)
 
 
+pytestmark = pytest.mark.usefixtures("database")
+
+
 @pytest.fixture(autouse=True)
 def clear_dedup():
     _dedup.clear()
