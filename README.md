@@ -114,7 +114,8 @@ After editing `prometheus/alertmanager.yml`, reload it with `curl -X POST http:/
 Incidents and their approval audit trail are business records — queried, listed, and kept — so they
 live in **Postgres**, retained for 7 days and capped at 200 rows. The **Redis** instance holds the
 LangGraph checkpoints that let an approval survive a gateway restart: runtime state that may be
-discarded. Splitting them that way is why a gateway restart no longer empties the UI, and why a
+discarded, and which expires after 7 days — refreshed on read, so a run waiting on an approval does
+not expire mid-wait. Splitting them that way is why a gateway restart no longer empties the UI, and why a
 paused approval can still be approved afterwards.
 
 `DIAGNOSIS_LANGUAGE` (`en` or `zh`) selects the language the model writes diagnoses in. It is a

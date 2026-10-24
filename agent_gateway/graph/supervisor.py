@@ -21,6 +21,14 @@ from safety.hitl import Decision
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
+# Checkpoints are runtime state, not a record: once a run has finished nothing reads them again, and
+# without an expiry they accumulate for the life of the instance. Reads refresh the window so a run
+# waiting on an approval does not expire while it waits.
+CHECKPOINT_TTL = {
+    "default_ttl": int(os.environ.get("CHECKPOINT_TTL_MINUTES", 60 * 24 * 7)),
+    "refresh_on_read": True,
+}
+
 _graph = None
 
 
@@ -41,10 +49,27 @@ def build_graph(checkpointer):
 async def get_graph():
     global _graph
     if _graph is None:
-        saver = AsyncRedisSaver(REDIS_URL)
+        saver = AsyncRedisSaver(REDIS_URL, ttl=CHECKPOINT_TTL)
         await saver.asetup()
         _graph = build_graph(saver)
     return _graph
+
+
+async def expire_untracked_checkpoints(ttl_minutes: int | None = None) -> int:
+    """Put an expiry on checkpoint keys that were written before there was one.
+
+    The saver only sets a TTL on keys it writes, so an upgrade leaves the existing keys immortal.
+    """
+    graph = await get_graph()
+    client = graph.checkpointer._redis
+    seconds = (ttl_minutes or CHECKPOINT_TTL["default_ttl"]) * 60
+
+    expired = 0
+    async for key in client.scan_iter(match="checkpoint*", count=500):
+        if await client.ttl(key) == -1:
+            await client.expire(key, seconds)
+            expired += 1
+    return expired
 
 
 def _config(incident_id: str) -> dict:
