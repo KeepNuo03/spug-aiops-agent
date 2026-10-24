@@ -84,6 +84,31 @@ def test_prompt_carries_alert_context_and_evidence(make_event):
     assert "344 stress-ng" in prompt
 
 
+async def test_the_language_rule_reaches_the_model(fake_llm, monkeypatch):
+    monkeypatch.setattr(llm, "LANGUAGE", "zh")
+    completions = fake_llm(VALID_REPLY)
+    await diagnose("prompt")
+
+    system = completions.requests[0]["messages"][0]["content"]
+    assert "Simplified Chinese" in system
+    # Process names and numbers have to survive untranslated, or the cross-check stops matching.
+    assert "do not translate" in system
+
+
+async def test_english_is_the_default(fake_llm, monkeypatch):
+    monkeypatch.setattr(llm, "LANGUAGE", "en")
+    completions = fake_llm(VALID_REPLY)
+    await diagnose("prompt")
+    assert "in English" in completions.requests[0]["messages"][0]["content"]
+
+
+async def test_an_unknown_language_falls_back_to_english(fake_llm, monkeypatch):
+    monkeypatch.setattr(llm, "LANGUAGE", "klingon")
+    completions = fake_llm(VALID_REPLY)
+    await diagnose("prompt")
+    assert "in English" in completions.requests[0]["messages"][0]["content"]
+
+
 def test_missing_api_key_is_reported(monkeypatch):
     monkeypatch.setattr(llm, "API_KEY", "")
     with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
