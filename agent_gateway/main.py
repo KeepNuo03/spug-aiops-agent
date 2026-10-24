@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 from alerts import AlertmanagerPayload, to_events
+from graph.supervisor import expire_untracked_checkpoints
 from incidents import Incident, store
 from observability.structured_log import get_logger, log_event
 from processing import apply_decision, handle_alert, skip_reason
@@ -24,7 +25,8 @@ HEARTBEAT_SECONDS = 15
 async def lifespan(_: FastAPI):
     await db.connect()
     removed = await db.prune()
-    log_event(log, "database_ready", pruned=removed)
+    expired = await expire_untracked_checkpoints()
+    log_event(log, "database_ready", pruned=removed, checkpoints_given_expiry=expired)
     yield
     await db.disconnect()
 
