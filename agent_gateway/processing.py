@@ -54,7 +54,7 @@ def skip_reason(event: AlertEvent) -> str | None:
 
 
 async def handle_alert(event: AlertEvent) -> None:
-    incident = store.open(event)
+    incident = await store.open(event)
     intent = classify(event)
     log_event(
         log,
@@ -66,7 +66,7 @@ async def handle_alert(event: AlertEvent) -> None:
         matched_by=intent.matched_by,
         entities=intent.entities,
     )
-    store.update(
+    await store.update(
         incident.id,
         event="intent classified",
         detail=f"{intent.name} (confidence {intent.confidence}, by {intent.matched_by})",
@@ -76,7 +76,7 @@ async def handle_alert(event: AlertEvent) -> None:
 
     if intent.name == "unknown":
         log_event(log, "handling_skipped", fingerprint=event.fingerprint, reason="unknown_intent")
-        store.update(incident.id, event="handling skipped", detail="intent not recognized", status="skipped")
+        await store.update(incident.id, event="handling skipped", detail="intent not recognized", status="skipped")
         return
 
     try:
@@ -84,13 +84,13 @@ async def handle_alert(event: AlertEvent) -> None:
     except Exception as exc:
         # Nothing is watching a background task, so a crash has to land on the incident itself.
         log_event(log, "handling_crashed", fingerprint=event.fingerprint, error=str(exc))
-        store.update(incident.id, event="handling crashed", detail=str(exc), status="failed")
+        await store.update(incident.id, event="handling crashed", detail=str(exc), status="failed")
         raise
 
-    _finish(incident.id, event.fingerprint, intent.name, state)
+    await _finish(incident.id, event.fingerprint, intent.name, state)
 
 
-def _finish(incident_id: str, fingerprint: str, intent_name: str, state: dict) -> None:
+async def _finish(incident_id: str, fingerprint: str, intent_name: str, state: dict) -> None:
     if is_awaiting_approval(state):
         return  # the run is paused; apply_decision resumes it
 
@@ -101,19 +101,19 @@ def _finish(incident_id: str, fingerprint: str, intent_name: str, state: dict) -
         intent=intent_name,
         evidence_probes=len(state.get("evidence", [])),
     )
-    current = store.get(incident_id)
+    current = await store.get(incident_id)
     if current and current.status in SETTLED_BY_FINISH:
-        store.update(incident_id, event="handling finished", status="completed")
+        await store.update(incident_id, event="handling finished", status="completed")
 
 
 async def apply_decision(incident_id: str, decision: Decision) -> None:
     """Resume a paused run once a human has decided."""
-    incident = store.get(incident_id)
+    incident = await store.get(incident_id)
     if incident is None:
         raise LookupError("no such incident")
     if incident.status != "awaiting_approval":
         raise ValueError(f"incident is {incident.status}, not awaiting approval")
 
-    store.update(incident_id, event=f"operator {decision.decision}d", detail=decision.note)
+    await store.update(incident_id, event=f"operator {decision.decision}d", detail=decision.note)
     state = await resume(incident_id, decision)
-    _finish(incident_id, incident.fingerprint, incident.intent or "", state)
+    await _finish(incident_id, incident.fingerprint, incident.intent or "", state)

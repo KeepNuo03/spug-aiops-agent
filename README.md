@@ -90,6 +90,7 @@ docker compose up -d    # start Prometheus / Alertmanager / Redis and other depe
 | Prometheus | http://localhost:9090 | scrapes `lab-host:9100` |
 | Alertmanager | http://localhost:9093 | webhook → `agent_gateway` |
 | Agent Gateway | http://localhost:8001 | Web UI; `POST /webhook/alertmanager`, `GET /api/incidents`, `GET /api/stream` (SSE) |
+| Postgres | localhost:5432 | Incidents and the approval audit trail (`aiops` / `aiops` / `aiops.local`) |
 | MCP Server | http://localhost:8765/mcp | `query_metrics`, `exec_command` (read-only commands only) |
 | lab-host | SSH `localhost:2222` | Ubuntu + sshd + stress-ng + node_exporter; registered in Spug as `lab-host` via `host.docker.internal:2222` |
 
@@ -107,6 +108,19 @@ docker logs -f aiops-agent-gateway
 ```
 
 After editing `prometheus/alertmanager.yml`, reload it with `curl -X POST http://localhost:9093/-/reload`.
+
+### Where state lives
+
+Incidents and their approval audit trail are business records — queried, listed, and kept — so they
+live in **Postgres**, retained for 7 days and capped at 200 rows. The **Redis** instance holds the
+LangGraph checkpoints that let an approval survive a gateway restart: runtime state that may be
+discarded. Splitting them that way is why a gateway restart no longer empties the UI, and why a
+paused approval can still be approved afterwards.
+
+`DIAGNOSIS_LANGUAGE` (`en` or `zh`) selects the language the model writes diagnoses in. It is a
+deployment setting rather than a UI toggle because a diagnosis is written once, when the alert
+fires. Process names, pids, metric names and commands stay untranslated — the cross-check searches
+the evidence for them.
 
 ### Tests and Lint
 

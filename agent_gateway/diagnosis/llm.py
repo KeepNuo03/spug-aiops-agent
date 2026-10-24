@@ -18,9 +18,23 @@ BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("LLM_MODEL", "deepseek-v4-pro")
 TIMEOUT = float(os.environ.get("LLM_TIMEOUT_SECONDS", 60))
 
+# A diagnosis is written once, when the alert fires, so its language is a deployment setting rather
+# than something the reader switches later.
+LANGUAGE = os.environ.get("DIAGNOSIS_LANGUAGE", "en")
+
+LANGUAGE_RULE = {
+    "zh": (
+        "- Write root_cause and summary, and the reason of every action, in Simplified Chinese."
+        " Keep process names, pids, metric names, commands and numbers exactly as they appear in"
+        " the evidence — do not translate or reformat them."
+    ),
+    "en": "- Write root_cause, summary and every action reason in English.",
+}
+
 SYSTEM_PROMPT = """You are a Linux SRE diagnosing a production alert.
 
 Rules:
+{language_rule}
 - Use only the evidence given. Never invent process names, PIDs or numbers.
 - Every claim must come from a probe; list the probe names you used in evidence_used.
 - If a probe is UNAVAILABLE or the evidence does not explain the alert, say so in root_cause and
@@ -76,8 +90,11 @@ def build_prompt(event, evidence_block: str) -> str:
 
 
 async def diagnose(prompt: str) -> Diagnosis:
+    """Ask the model for a diagnosis, in the language this deployment is configured for."""
     client = _client()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+    # Not str.format: the prompt carries a JSON schema full of braces.
+    system = SYSTEM_PROMPT.replace("{language_rule}", LANGUAGE_RULE.get(LANGUAGE, LANGUAGE_RULE["en"]))
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
 
     for attempt in range(2):
         response = await client.chat.completions.create(

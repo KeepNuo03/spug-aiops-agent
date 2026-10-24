@@ -47,7 +47,7 @@ async def monitor(state: AIOpsState) -> AIOpsState:
         return {"evidence": []}
 
     incident_id = state.get("incident_id", "")
-    store.update(incident_id, event="collecting evidence", detail=f"probing {host}", status="collecting")
+    await store.update(incident_id, event="collecting evidence", detail=f"probing {host}", status="collecting")
 
     evidence = await collect_evidence(host)
     failed = [e["probe"] for e in evidence if "error" in e]
@@ -59,7 +59,7 @@ async def monitor(state: AIOpsState) -> AIOpsState:
         probes=[e["probe"] for e in evidence],
         failed=failed,
     )
-    store.update(
+    await store.update(
         incident_id,
         event="evidence collected",
         detail=f"{len(evidence) - len(failed)}/{len(evidence)} probes succeeded",

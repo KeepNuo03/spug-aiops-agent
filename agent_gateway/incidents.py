@@ -1,16 +1,20 @@
-"""In-memory record of what the agent did with each alert, plus change notifications for the UI.
+"""The record of what the agent did with each alert.
 
-Memory is enough while nothing depends on surviving a restart: the logs remain the durable record.
-The approval step is what will need persistence, and that is when this moves to Redis.
+Stored in Postgres: an incident carries the approval audit trail, and a record of who allowed a
+command to run on a host has to survive a restart. The subscriber set stays in memory — it is this
+process's open browser connections, not state worth persisting.
 """
 
 import asyncio
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from alerts import AlertEvent
+from db import pool
 
 Status = Literal[
     "received",
@@ -25,6 +29,13 @@ Status = Literal[
     "skipped",
     "failed",
 ]
+
+COLUMNS = (
+    "id, fingerprint, alertname, hostname, summary, status, intent, "
+    "opened_at, updated_at, timeline, evidence, diagnosis, approval"
+)
+JSON_FIELDS = ("evidence", "diagnosis", "approval")
+WRITABLE_FIELDS = ("status", "intent", "evidence", "diagnosis", "approval")
 
 
 def _now() -> datetime:
@@ -54,12 +65,10 @@ class Incident(BaseModel):
 
 
 class IncidentStore:
-    def __init__(self, capacity: int = 100) -> None:
-        self._capacity = capacity
-        self._incidents: dict[str, Incident] = {}
+    def __init__(self) -> None:
         self._subscribers: set[asyncio.Queue] = set()
 
-    def open(self, event: AlertEvent) -> Incident:
+    async def open(self, event: AlertEvent) -> Incident:
         incident = Incident(
             id=f"{event.fingerprint}-{int(event.starts_at.timestamp())}",
             fingerprint=event.fingerprint,
@@ -68,27 +77,72 @@ class IncidentStore:
             summary=event.summary,
             timeline=[TimelineEntry(event="alert received", detail=event.description)],
         )
-        self._incidents[incident.id] = incident
-        while len(self._incidents) > self._capacity:
-            self._incidents.pop(next(iter(self._incidents)))
+        async with (await pool()).connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO incidents (id, fingerprint, alertname, hostname, summary, status,
+                                       opened_at, updated_at, timeline)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (
+                    incident.id,
+                    incident.fingerprint,
+                    incident.alertname,
+                    incident.hostname,
+                    incident.summary,
+                    incident.status,
+                    incident.opened_at,
+                    incident.updated_at,
+                    Jsonb([entry.model_dump(mode="json") for entry in incident.timeline]),
+                ),
+            )
         self._publish(incident)
         return incident
 
-    def update(self, incident_id: str, *, event: str, detail: str | None = None, **fields) -> None:
-        incident = self._incidents.get(incident_id)
-        if incident is None:
-            return
-        for name, value in fields.items():
-            setattr(incident, name, value)
-        incident.timeline.append(TimelineEntry(event=event, detail=detail))
-        incident.updated_at = _now()
-        self._publish(incident)
+    async def update(self, incident_id: str, *, event: str, detail: str | None = None, **fields) -> None:
+        """Append a timeline entry and set any of the writable columns, in one statement."""
+        entry = TimelineEntry(event=event, detail=detail)
+        updates = {name: value for name, value in fields.items() if name in WRITABLE_FIELDS}
+        assignments = "".join(f", {name} = %s" for name in updates)
 
-    def list(self) -> list[Incident]:
-        return list(reversed(self._incidents.values()))
+        async with (await pool()).connection() as conn:
+            conn.row_factory = dict_row
+            cursor = await conn.execute(
+                f"""
+                   UPDATE incidents
+                      SET timeline = timeline || %s, updated_at = %s{assignments}
+                    WHERE id = %s
+                RETURNING {COLUMNS}
+                """,
+                (
+                    Jsonb([entry.model_dump(mode="json")]),
+                    _now(),
+                    *(Jsonb(value) if name in JSON_FIELDS else value for name, value in updates.items()),
+                    incident_id,
+                ),
+            )
+            row = await cursor.fetchone()
 
-    def get(self, incident_id: str) -> Incident | None:
-        return self._incidents.get(incident_id)
+        if row is not None:
+            self._publish(Incident.model_validate(row))
+
+    async def list(self, limit: int = 100) -> list[Incident]:
+        async with (await pool()).connection() as conn:
+            conn.row_factory = dict_row
+            # id breaks ties: two alerts can open within the same clock tick, and a list whose order
+            # depends on which row the planner reached first is not a list.
+            cursor = await conn.execute(
+                f"SELECT {COLUMNS} FROM incidents ORDER BY opened_at DESC, id DESC LIMIT %s", (limit,)
+            )
+            return [Incident.model_validate(row) for row in await cursor.fetchall()]
+
+    async def get(self, incident_id: str) -> Incident | None:
+        async with (await pool()).connection() as conn:
+            conn.row_factory = dict_row
+            cursor = await conn.execute(f"SELECT {COLUMNS} FROM incidents WHERE id = %s", (incident_id,))
+            row = await cursor.fetchone()
+            return Incident.model_validate(row) if row else None
 
     def subscribe(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=50)
@@ -99,12 +153,9 @@ class IncidentStore:
         self._subscribers.discard(queue)
 
     def _publish(self, incident: Incident) -> None:
-        # A snapshot, not the live object: a subscriber reading later must see this transition,
-        # not whatever the incident has become since.
-        snapshot = incident.model_copy(deep=True)
         for queue in list(self._subscribers):
             try:
-                queue.put_nowait(snapshot)
+                queue.put_nowait(incident)
             except asyncio.QueueFull:
                 # A browser that cannot keep up gets the current state on its next reload.
                 self._subscribers.discard(queue)

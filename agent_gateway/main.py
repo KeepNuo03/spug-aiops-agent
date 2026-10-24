@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+import db
 from alerts import AlertmanagerPayload, to_events
 from incidents import Incident, store
 from observability.structured_log import get_logger, log_event
@@ -17,7 +19,17 @@ from safety.hitl import Decision
 FRONTEND = Path(__file__).parent / "frontend"
 HEARTBEAT_SECONDS = 15
 
-app = FastAPI(title="spug-aiops-agent gateway")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await db.connect()
+    removed = await db.prune()
+    log_event(log, "database_ready", pruned=removed)
+    yield
+    await db.disconnect()
+
+
+app = FastAPI(title="spug-aiops-agent gateway", lifespan=lifespan)
 log = get_logger("agent_gateway")
 
 
@@ -41,13 +53,13 @@ async def alertmanager_webhook(payload: AlertmanagerPayload, background: Backgro
 
 
 @app.get("/api/incidents")
-def list_incidents() -> list[Incident]:
-    return store.list()
+async def list_incidents() -> list[Incident]:
+    return await store.list()
 
 
 @app.get("/api/incidents/{incident_id}")
-def get_incident(incident_id: str) -> Incident:
-    incident = store.get(incident_id)
+async def get_incident(incident_id: str) -> Incident:
+    incident = await store.get(incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="no such incident")
     return incident
@@ -60,7 +72,7 @@ async def decide(incident_id: str, decision: Decision, background: BackgroundTas
     The lab gateway has no authentication: anyone who can reach it can approve. A real deployment
     needs an authenticated operator here, since this is the step that changes a host.
     """
-    incident = store.get(incident_id)
+    incident = await store.get(incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="no such incident")
     if incident.status != "awaiting_approval":

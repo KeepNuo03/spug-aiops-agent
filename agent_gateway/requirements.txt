@@ -4,3 +4,4 @@ mcp
 langgraph
 langgraph-checkpoint-redis
 openai
+psycopg[binary,pool]
